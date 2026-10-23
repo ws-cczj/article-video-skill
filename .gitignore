@@ -1,0 +1,19 @@
+# Local environments and secrets
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db
+
+# Private source papers, generated media, and task artifacts
+/inputs/
+/outputs/
+/tmp/
+*.mp4
+*.mov
+*.wav
+*.mp3

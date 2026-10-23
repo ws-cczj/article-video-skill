@@ -1,0 +1,4 @@
+interface:
+  display_name: "文献转学习视频"
+  short_description: "将学术文献整理为有原文依据的学习视频总结、完整旁白与分镜脚本"
+  default_prompt: "请使用 $article-video-skill，将这篇文献整理为便于学习的中文视频总结，提供带来源定位的要点、旁白和分镜，并在工具可用时生成视频。"
