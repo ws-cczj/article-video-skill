@@ -4,7 +4,7 @@
 
 本项目是面向 AI 编程助手的 **Skill**。它指导助手从文献出发，整理可追溯的知识要点，编写旁白与分镜，并在具备相应工具时生成视频。
 
-> 当前阶段：基础架构。已提供工作流指令、证据记录模板、视频脚本模板和贡献入口；尚未集成 PDF 解析、语音合成或视频渲染程序。仅安装本 Skill 不会自动获得这些能力，也没有一键生成视频的命令。
+> 当前阶段：基础架构。已提供工作流指令、证据记录模板和视频脚本模板；尚未集成 PDF 解析、语音合成或视频渲染程序。仅安装本 Skill 不会自动获得这些能力，也没有一键生成视频的命令。
 
 ## 工作流程
 
@@ -50,10 +50,7 @@ article-video-skill/
 ├── assets/
 │   ├── evidence-template.md         # 原文证据与结论记录
 │   └── storyboard-template.md       # 旁白、字幕和分镜模板
-├── .github/
-│   ├── ISSUE_TEMPLATE/              # 问题与功能建议模板
-│   └── pull_request_template.md     # PR 模板
-├── CONTRIBUTING.md                  # 贡献流程与验收要求
+├── DEVELOPMENT.md                   # 现有协作者的同步与推送方法
 └── LICENSE                          # GPL-2.0 完整许可证
 ```
 
@@ -68,17 +65,12 @@ article-video-skill/
 
 输入论文和生成的视频默认不提交到本仓库。不得编造实验数据、引用或原文结论；示意动画应注明“示意”。原论文、图表、音频和其他第三方素材仍受各自权利及许可约束。
 
-## 参与贡献
+## 开发方式
 
-欢迎通过 [Issues](https://github.com/ws-cczj/article-video-skill/issues) 报告问题、提出功能建议，通过 [Discussions](https://github.com/ws-cczj/article-video-skill/discussions) 交流想法，或 Fork 后提交 Pull Request。贡献者无需直接写入权限；合并由维护者审核。
+本项目目前由已授权的协作者直接开发和推送，不开放外部贡献入口。Issues、Discussions 和 Pull Requests 均已关闭。
 
-开始前请阅读 [贡献指南](CONTRIBUTING.md)。优先欢迎以下方向：
-
-- PDF 与论文元数据提取、证据定位。
-- 面向不同学科和受众的讲解与分镜模板。
-- TTS、字幕对齐、视频渲染工具的可选集成。
-- 有权公开分享的示例、使用反馈与质量评估。
+协作者直接同步和推送 `main`，无需 PR 或审核；推送前合入远程最新提交，遇到冲突时先解决并验证再推送。操作步骤见 [开发说明](DEVELOPMENT.md)。禁止强制推送及删除 `main`，以保护双方已提交的工作。
 
 ## 许可证
 
-本项目采用 **GNU General Public License v2.0 only**（`GPL-2.0-only`），完整条款见 [LICENSE](LICENSE)。贡献按同一许可证接收；第三方素材不因存放于项目中而自动改用本许可证。
+本项目采用 **GNU General Public License v2.0 only**（`GPL-2.0-only`），完整条款见 [LICENSE](LICENSE)。第三方素材不因存放于项目中而自动改用本许可证。
