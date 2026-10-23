@@ -1,0 +1,96 @@
+% !TeX program = xelatex
+% Reusable source template, not a completed paper summary.
+% Replace all instructional prose and source metadata before delivery.
+\documentclass[UTF8,fontset=fandol,zihao=-4,a4paper]{ctexart}
+\usepackage[margin=25mm]{geometry}
+\usepackage{fontspec}
+\setmainfont{TeX Gyre Termes}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs,tabularx,graphicx}
+\usepackage{setspace}
+\usepackage[hidelinks,unicode]{hyperref}
+\urlstyle{same}
+
+\onehalfspacing
+\setlength{\parindent}{2\ccwd}
+\setlength{\parskip}{0pt}
+\pagestyle{plain}
+\ctexset{
+  section = {
+    number = \arabic{section},
+    format = \raggedright\zihao{4}\bfseries,
+    beforeskip = 12bp,
+    afterskip = 6bp
+  },
+  subsection = {
+    number = \arabic{section}.\arabic{subsection},
+    format = \raggedright\zihao{-4}\bfseries,
+    beforeskip = 6bp,
+    afterskip = 3bp
+  }
+}
+\DeclareMathOperator{\argmin}{arg\,min}
+\DeclareMathOperator{\argmax}{arg\,max}
+
+\begin{document}
+
+\begin{center}
+  {\zihao{2}\bfseries 文献中文题名：阅读总结\par}
+  \vspace{6bp}
+  {\zihao{5} 文献阅读总结\par}
+\end{center}
+
+\noindent\textbf{原文标题：}填写核验后的原文完整标题。\par
+\noindent\textbf{原文作者与发表信息：}填写作者、发表来源及年份。\par
+\noindent\textbf{原文链接或 DOI：}填写已核验的链接或 DOI。\par
+\noindent\textbf{阅读范围：}注明全文、摘要或指定章节，以及页码规则。\par
+
+\begin{abstract}
+用中文连贯概括原文研究问题、方法、核心发现及局限。仅使用已核验信息，不把本总结表述为独立完成的原创研究。
+\end{abstract}
+\noindent\textbf{关键词：}填写三至五个中文关键词，以分号分隔。\par
+
+\section{引言}
+说明研究背景、原文要解决的问题和阅读本总结所需的基础概念，并引用原文\cite{source}。
+
+\section{核心方法或理论框架}
+按适合原文的逻辑解释方法、理论假设或综述组织方式。需要二级标题时使用 subsection，不手工编号。
+
+% Add equations only when supported by the source. Example syntax:
+% \begin{equation}
+%   \hat{\theta} = \argmin_{\theta} \mathcal{L}(\theta)
+%   \label{eq:objective}
+% \end{equation}
+% Explain every variable, unit, assumption, and the original equation locator.
+% Refer to it with \eqref{eq:objective}; preserve the source's actual symbols.
+
+\section{主要结果或核心论证}
+依据原文证据解释主要发现，保留必要的数值、单位、实验条件和比较基线。理论或综述论文改用对应的命题、论证或研究进展。
+
+% Optional table syntax, to be filled only with verified data:
+% \begin{table}[htbp]
+%   \centering
+%   \caption{Describe the comparison, units, conditions, and source in Chinese.}
+%   \label{tab:comparison}
+%   \begin{tabularx}{\linewidth}{lXX}
+%     \toprule
+%     Method & Metric & Conditions \\
+%     \midrule
+%     ... & ... & ... \\
+%     \bottomrule
+%   \end{tabularx}
+% \end{table}
+
+\section{讨论与局限}
+区分原文明确报告的局限和总结者的解释，注明证据与适用范围；缺失的信息如实说明。
+
+\section{结论}
+用中文归纳原文能够支持的结论、学习收获及仍未解决的问题，不增加新证据或夸大贡献。
+
+\begin{thebibliography}{99}
+\bibitem{source}
+原文作者．原文题名．发表来源，年份．填写核验后的 DOI 或来源链接。
+% Add only sources actually consulted and verified, using consecutive bibitems.
+\end{thebibliography}
+
+\end{document}
