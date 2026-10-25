@@ -96,4 +96,4 @@ python -X utf8 scripts/render_motion.py 'outputs/<论文标识>/storyboard.json'
 
 讲解视频的生成实验不等于复现论文算法。`review.md`分别记录内容依据、PDF页面检查、视频技术检查、试听范围，以及尚未核验的材料。
 
-修改本地脚本后运行 `python -X utf8 -m unittest discover -s tests -v`，覆盖真实WAV时长、旧配音拒绝、字幕行首标点和源稿转义；仍需对真实任务做渲染检查。
+修改本地脚本后，使用实际任务检查WAV时长、旁白与计时一致性、字幕换行和源稿转义，并检查实际渲染结果。

@@ -51,7 +51,6 @@ article-video-skill/
 ├── SKILL.md                         # 技能入口与工作流
 ├── agents/openai.yaml               # 助手界面元数据
 ├── scripts/                         # PDF提取、总结生成、逐句配音、视频渲染
-├── tests/                           # 计时、稿件一致性与字幕换行回归检查
 ├── requirements.txt                 # Python依赖；不包含外部程序
 ├── requirements-neural.txt          # 可选在线神经配音依赖
 ├── assets/
