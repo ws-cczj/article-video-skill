@@ -1,0 +1,4 @@
+Pillow>=10
+pypdfium2>=4
+numpy>=1.24
+skia-python>=138,<145

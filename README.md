@@ -4,7 +4,7 @@
 
 本项目是面向 AI 编程助手的 **Skill**。它指导助手先生成规范排版的中文文献总结，再编写旁白、按内容选择视觉方案和组织分镜，并在具备相应工具时生成、审查和微调视频。
 
-> 当前阶段：基础架构。已提供工作流指令、中文总结排版规范、LaTeX 源稿模板、证据记录和分镜模板；尚未集成 PDF 解析、文档编译、语音合成或视频渲染程序，也没有可直接渲染的视频样式模板库。仅安装本 Skill 不会自动获得这些能力，也没有一键生成视频的命令。
+> 当前阶段：可运行的制作原型。提供 PDF 提取、中文总结与 XeLaTeX 编译、可选神经配音、语音触发的连续对象动画和带字幕视频渲染。高质量路径支持原生4K抗锯齿矢量与120fps，默认按中文讲解补足句间停顿；镜头时长覆盖末尾动画。本地与在线配音接入同一渲染器，全部音频在编码前统一格式，整片PCM处理后最终一次编码。论文理解、证据核查与成片审查仍由助手完成。详见 [本地制作说明](references/local-production.md) 与 [讲解设计](references/explainer-style.md)。
 
 ## 工作流程
 
@@ -50,12 +50,18 @@ git clone https://github.com/ws-cczj/article-video-skill.git ~/.codex/skills/art
 article-video-skill/
 ├── SKILL.md                         # 技能入口与工作流
 ├── agents/openai.yaml               # 助手界面元数据
+├── scripts/                         # PDF提取、总结生成、逐句配音、视频渲染
+├── tests/                           # 计时、稿件一致性与字幕换行回归检查
+├── requirements.txt                 # Python依赖；不包含外部程序
+├── requirements-neural.txt          # 可选在线神经配音依赖
 ├── assets/
 │   ├── evidence-template.md         # 原文证据与结论记录
 │   ├── chinese-summary-template.tex # 中文论文式总结排版源稿
 │   └── storyboard-template.md       # 旁白、字幕和分镜模板
 ├── references/
-│   └── chinese-summary-format.md    # 中文总结结构与排版规范
+│   ├── chinese-summary-format.md    # 中文总结结构与排版规范
+│   ├── local-production.md          # 本地命令、数据结构与验收边界
+│   └── explainer-style.md           # 例子贯穿、连续动画与配音质量
 ├── DEVELOPMENT.md                   # 现有协作者的同步与推送方法
 └── LICENSE                          # GPL-2.0 完整许可证
 ```
@@ -67,8 +73,10 @@ article-video-skill/
 - `evidence.md`：文献信息、证据定位、关键结果、局限与待核实项。
 - `summary.md`：独立的中文论文式总结，不以旁白或要点列表代替。
 - `summary.tex`：与总结正文一致的可编辑排版源稿。
+- `summary.json`：本地生成器使用的共同内容源，便于同步维护正文和排版稿。
 - `summary.pdf`：仅在具备编译条件并完成页面检查后交付；无法编译时明确排版未验收。
 - `storyboard.md`：分镜、旁白、字幕文本、画面设计、时间轴和引用。
+- `storyboard.json`：渲染器使用的可执行分镜；`audio/`保存本地配音和逐句计时。
 - `subtitles.srt`：语音时间轴确定后生成的字幕。
 - `video.mp4`：仅在已完成渲染和检查时交付。
 - `review.md`：实际视频审查的问题、时间点、镜头编号、修改建议及复查结果；未能完成的检查如实标明。

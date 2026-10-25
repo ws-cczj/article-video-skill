@@ -4,7 +4,12 @@
 \documentclass[UTF8,fontset=fandol,zihao=-4,a4paper]{ctexart}
 \usepackage[margin=25mm]{geometry}
 \usepackage{fontspec}
-\setmainfont{TeX Gyre Termes}
+% Load TeX-distributed font files without requiring OS font registration.
+\setmainfont{texgyretermes-regular.otf}[
+  BoldFont = texgyretermes-bold.otf,
+  ItalicFont = texgyretermes-italic.otf,
+  BoldItalicFont = texgyretermes-bolditalic.otf
+]
 \usepackage{amsmath,amssymb,bm}
 \usepackage{booktabs,tabularx,graphicx}
 \usepackage{setspace}
@@ -14,6 +19,8 @@
 \onehalfspacing
 \setlength{\parindent}{2\ccwd}
 \setlength{\parskip}{0pt}
+\clubpenalty=10000
+\widowpenalty=10000
 \pagestyle{plain}
 \ctexset{
   section = {
