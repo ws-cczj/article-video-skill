@@ -22,6 +22,24 @@ ffmpeg -v error -i 'outputs/<论文标识>/video.mp4' -f null -
 
 配音脚本用UTF-8 BOM保存以兼容Windows PowerShell。上面的RemoteSigned仅作用于当前子进程，允许执行本地脚本，不修改系统持久策略；组织策略仍优先。如果仍被阻止，说明限制并使用已有音频路径。
 
+### FFmpeg 下载与音频准备
+
+Windows 64位环境可用下载脚本获取 [Gyan 的 FFmpeg essentials ZIP](https://www.gyan.dev/ffmpeg/builds/)。脚本核对下载源提供的SHA256后解压，保留发行包中的许可证，检查`ffmpeg`与`ffprobe`可运行并返回路径。已有可用安装时复用，不重复下载。默认目录为`%LOCALAPPDATA%\article-video-skill\ffmpeg`，ZIP放在其中的`downloads`；下载包约100MB，不纳入Skill仓库。
+
+```powershell
+# 只显示下载地址与保存路径，不下载。
+& ./scripts/download_ffmpeg.ps1 -Destination 'D:\tools\ffmpeg' -ShowPaths
+# 下载、解压并返回实际路径；可另用 -DownloadDirectory 指定ZIP保存目录。
+$ffmpegTools = & ./scripts/download_ffmpeg.ps1 -Destination 'D:\tools\ffmpeg'
+# 让当前PowerShell及其子进程使用这些工具，不修改系统或用户的永久PATH。
+$env:Path = "$($ffmpegTools.BinPath);$env:Path"
+# 如网络需要代理，在下载命令中加 -Proxy 'http://127.0.0.1:7890'。
+
+python -X utf8 scripts/prepare_audio.py 'D:\recordings\narration.mp3' --output 'outputs/paper/audio/narration.wav' --ffmpeg "$($ffmpegTools.FFmpeg)"
+```
+
+`prepare_audio.py`也接受录制视频，提取FFmpeg默认选中的音轨；输出与渲染器一致的48kHz、单声道PCM16 WAV。它复用`speech_io.py`的转换逻辑，不压缩为MP3或AAC，不自动降噪或改变语速，也不生成语音或字幕时间轴。已有输出默认拒绝覆盖，可显式传`--overwrite`；禁止覆盖输入文件。转换完成并验证后才写入最终路径。音频文件仍需配套提供对应的讲稿和计时清单，不能因为格式转换成功就宣称字幕已经对齐。
+
 ## summary.json
 
 必填字符串：`title`（中文总结题名）、`original_title`、`authors`、`publication`、`url`、`scope`、`abstract`、`reference`。`keywords`为3—5个关键词；`sections`为章节数组，每项含`title`和`blocks`。编号由模板自动生成，标题中不重复编号。

@@ -50,7 +50,7 @@ git clone https://github.com/ws-cczj/article-video-skill.git ~/.codex/skills/art
 article-video-skill/
 ├── SKILL.md                         # 技能入口与工作流
 ├── agents/openai.yaml               # 助手界面元数据
-├── scripts/                         # PDF提取、总结生成、逐句配音、视频渲染
+├── scripts/                         # PDF提取、总结、配音、FFmpeg下载、音频转换与渲染
 ├── requirements.txt                 # Python依赖；不包含外部程序
 ├── requirements-neural.txt          # 可选在线神经配音依赖
 ├── assets/
