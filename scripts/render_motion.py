@@ -6,6 +6,7 @@ position, size, opacity, scale and line progress. Times can refer to speech cues
 import argparse
 import copy
 import html
+import hashlib
 import json
 import math
 import os
@@ -15,6 +16,9 @@ import shutil
 import subprocess
 import tempfile
 import wave
+from collections import deque
+from concurrent.futures import ProcessPoolExecutor
+from contextlib import nullcontext
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from render_video import wrap, timestamp
@@ -22,8 +26,28 @@ from render_video import wrap, timestamp
 PALETTE = {'bg':'#252a32', 'ink':'#f7f5ed', 'muted':'#b3bcc8',
            'yellow':'#efcf67', 'cyan':'#69c4d7', 'red':'#e78783', 'green':'#9bc591'}
 
+WARM_COLORS = {
+    '#f7f5ed':'#263238', '#69c4d7':'#0c6570', '#efcf67':'#865715',
+    '#a9bdd2':'#526369', '#9aaec5':'#596970', '#b3bcc8':'#526369',
+    '#e78783':'#9d443b', '#9bc591':'#3e704e', '#213a50':'#e3e9e7',
+    '#294650':'#d6e5df', '#244a59':'#c9e1e3', '#5e553b':'#e8d8ba',
+    '#387482':'#96bec2', '#162331':'#dce2df', '#3e4955':'#718184',
+    '#78818a':'#a1afb1', '#a0a7ad':'#c8d1d0',
+}
+
 OBJECT_DEFAULTS = dict(x=0,y=0,width=0,height=0,scale=1,opacity=1,
-                       progress=1,stroke_width=2,font_size=26)
+                       progress=1,stroke_width=2,font_size=26,
+                       rotation=0,offset_x=0,offset_y=0)
+
+
+def _init_frame_worker(root,font,height,backend):
+    global _worker_canvas
+    _worker_canvas=(QualityCanvas if backend=='skia' else Canvas)(Path(root),font,height)
+
+
+def _save_frame(task):
+    scene,index,count,time,cues,captions,path=task
+    _worker_canvas.draw(scene,index,count,time,cues,captions).save(path,compress_level=1)
 
 
 def event_time(value, cues):
@@ -154,6 +178,8 @@ class Canvas:
         if px not in self.fonts:self.fonts[px]=ImageFont.truetype(self.font,px)
         return self.fonts[px]
     def draw(self,scene,index,count,time,cues,captions):
+        if scene.get('theme','deep-ocean')!='deep-ocean':
+            raise ValueError('Color themes require --backend skia')
         s=self.scale
         im=Image.new('RGB',self.size,scene.get('background',PALETTE['bg']))
         d=ImageDraw.Draw(im)
@@ -176,6 +202,8 @@ class Canvas:
             d.text((x,(630+j*38)*s),line,font=f,fill=PALETTE['ink'],stroke_width=round(2*s),stroke_fill=PALETTE['bg'])
         return im
     def paint(self,im,o):
+        if any(o.get(k,0) for k in ('rotation','offset_x','offset_y')):
+            raise ValueError('Rotated linked diagrams require --backend skia')
         s=self.scale;direct=o['opacity']>=.999
         layer=im if direct else Image.new('RGBA',self.size);d=ImageDraw.Draw(layer)
         alpha=round(255*o['opacity'])
@@ -235,7 +263,7 @@ class QualityCanvas(Canvas):
         import skia
         self.skia=skia;self.typeface=skia.Typeface.MakeFromFile(font)
         if self.typeface is None:raise RuntimeError(f'Could not load font: {font}')
-        self.skfonts={};self.skimages={};self.backgrounds={}
+        self.skfonts={};self.skimages={};self.backgrounds={};self.theme='deep-ocean'
     def sf(self,size):
         if size not in self.skfonts:
             font=self.skia.Font(self.typeface,size)
@@ -245,6 +273,7 @@ class QualityCanvas(Canvas):
     def color(self,value,alpha=1):
         return self.skia.ColorSetARGB(round(255*alpha),*(int(value[i:i+2],16) for i in (1,3,5)))
     def paint_for(self,color,alpha=1,stroke=None):
+        if self.theme=='warm-paper':color=WARM_COLORS.get(color.lower(),color)
         p=self.skia.Paint(AntiAlias=True,Color=self.color(color,alpha))
         if stroke is not None:
             p.setStyle(self.skia.Paint.kStroke_Style);p.setStrokeWidth(stroke)
@@ -253,12 +282,13 @@ class QualityCanvas(Canvas):
     def background(self,theme):
         if theme not in self.backgrounds:
             sk=self.skia;surface=sk.Surface(*self.size);c=surface.getCanvas()
+            colors=('#faf8f2','#f4f0e7','#ede8df') if theme=='warm-paper' else ('#1b3047','#101f33','#090f1c')
             shader=sk.GradientShader.MakeRadial((self.size[0]*.4,self.size[1]*.32),self.size[0]*.77,
-                [self.color('#1b3047'),self.color('#101f33'),self.color('#090f1c')],[0,.55,1])
+                [self.color(x) for x in colors],[0,.55,1])
             c.drawPaint(sk.Paint(Shader=shader,Dither=True))
             c.scale(self.scale,self.scale)
             # A quiet stage, controlled lighting and one small accent; no moving noise.
-            c.drawRoundRect(sk.Rect.MakeXYWH(38,126,1204,450),18,18,self.paint_for('#1a2a40',.40))
+            c.drawRoundRect(sk.Rect.MakeXYWH(38,126,1204,450),18,18,self.paint_for('#ffffff',.76) if theme=='warm-paper' else self.paint_for('#1a2a40',.40))
             c.drawLine(64,111,1216,111,self.paint_for('#7493b3',.16,1))
             c.drawLine(48,27,48,48,self.paint_for('#78c9dc',.85,3))
             for x,y in [(1085,162),(1125,162),(1165,162),(1205,162)]:
@@ -273,6 +303,8 @@ class QualityCanvas(Canvas):
             px=x-font.measureText(line)/2 if align=='center' else x
             c.drawString(line,px,y+baseline+j*size*1.4,font,self.paint_for(color,alpha))
     def draw(self,scene,index,count,time,cues,captions):
+        self.theme=scene.get('theme','deep-ocean')
+        if self.theme not in ('deep-ocean','warm-paper'):raise ValueError(f'Unknown theme: {self.theme}')
         sk=self.skia;surface=sk.Surface(*self.size);c=surface.getCanvas()
         c.drawImage(self.background(scene.get('theme','deep-ocean')),0,0)
         c.scale(self.scale,self.scale)
@@ -280,6 +312,9 @@ class QualityCanvas(Canvas):
         self.text(c,scene['title'],640,61,34,align='center',max_width=1170,max_lines=1)
         for obj in scene['objects']:
             state=object_state(obj,time,cues)
+            # Explicit theme overrides keep labels legible on colored fills.
+            if state is not None and self.theme=='warm-paper' and state.get('theme_fill'):
+                state['fill']=state['theme_fill'].get(self.theme,state.get('fill',PALETTE['ink']))
             if state is not None and state['opacity']>0:self.paint_object(c,state)
         self.text(c,scene.get('source',''),48,592,14,'#9aaec5',max_width=1170,max_lines=1)
         caption=next((text for a,b,text in captions if a<=time<b),'')
@@ -288,6 +323,7 @@ class QualityCanvas(Canvas):
         return Image.fromarray(array,'RGBA').convert('RGB')
     def paint_object(self,c,o):
         sk=self.skia;c.save();c.translate(o.get('x',0),o.get('y',0));z=o.get('scale',1);c.scale(z,z)
+        c.rotate(o.get('rotation',0));c.translate(o.get('offset_x',0),o.get('offset_y',0))
         alpha=o['opacity'];fill=o.get('fill',PALETTE['ink']);stroke=o.get('stroke');sw=o.get('stroke_width',2)
         kind=o['type'];w=o.get('width',0);h=o.get('height',0)
         if kind=='text':
@@ -338,6 +374,8 @@ class QualityCanvas(Canvas):
 def render(args):
     path=Path(args.storyboard).resolve();root=path.parent
     story=json.loads(path.read_text(encoding='utf-8-sig'));scenes=story['scenes']
+    if getattr(args,'theme',None):
+        for scene in scenes:scene['theme']=args.theme
     ffmpeg=shutil.which(args.ffmpeg)
     if not ffmpeg:raise RuntimeError('FFmpeg unavailable')
     font=args.font or os.path.join(os.environ.get('WINDIR','C:/Windows'),'Fonts/msyh.ttc')
@@ -359,7 +397,9 @@ def render(args):
         object_ids=[o['id'] for o in scene['objects']]
         if len(object_ids)!=len(set(object_ids)):raise ValueError('Object IDs must be unique within a scene')
         audio_plans.append((scene,audio,duration,frames,cues,caps))
-    canvas=(QualityCanvas if args.backend=='skia' else Canvas)(root,font,args.height);plans=[]
+    canvas_type=QualityCanvas if args.backend=='skia' else Canvas
+    canvas=canvas_type(root,font,args.height);plans=[]
+    layout_canvas=canvas if args.height<=1080 else canvas_type(root,font,1080)
     for i,(scene,audio,duration,frames,cues,caps) in enumerate(audio_plans):
         sid=scene['id']
         # Preflight every speech change and animation endpoint before encoding.
@@ -368,18 +408,59 @@ def render(args):
             points.add(event_time(o.get('at',0),cues)+.4)
             points.update(event_time(k['at'],cues)+.1 for k in o.get('keyframes',[]))
         for t in sorted(points):
-            if t<duration:canvas.draw(scene,i,len(scenes),t,cues,caps)
+            if t<duration:layout_canvas.draw(scene,i,len(scenes),t,cues,caps)
         canvas.draw(scene,i,len(scenes),duration*.7,cues,caps).save(previews/f'{sid}.png')
         plans.append((scene,audio,duration,frames,cues,caps))
     timeline=[];subtitles=[];offset=0
-    with tempfile.TemporaryDirectory(prefix='article-motion-') as temp:
+    segment_cache=output.with_name(output.stem+'-segments');segment_cache.mkdir(exist_ok=True)
+    code_hash=hashlib.sha256(b''.join(p.read_bytes() for p in sorted(Path(__file__).parent.glob('*.py')))).hexdigest()
+    font_hash=hashlib.sha256(Path(font).read_bytes()).hexdigest()
+    worker_count=getattr(args,'workers',1)
+    executor=(ProcessPoolExecutor(max_workers=worker_count,initializer=_init_frame_worker,
+              initargs=(str(root),font,args.height,args.backend)) if worker_count>1 else nullcontext(None))
+    with tempfile.TemporaryDirectory(prefix='article-motion-') as temp, executor as pool:
         parts=[]
         for i,(scene,audio,duration,frames,cues,caps) in enumerate(plans):
-            part=Path(temp)/f'{i:03}.mp4'
+            fingerprint=hashlib.sha256(json.dumps([scene,cues,caps,frames,i,len(scenes),args.height,args.fps,args.backend,args.crf,args.preset,getattr(args,'encoder','libx264'),getattr(args,'transport','frames'),code_hash,font_hash],ensure_ascii=False,sort_keys=True).encode()).hexdigest()
+            # Referenced image content must also invalidate a cached segment.
+            for obj in scene['objects']:
+                if obj.get('image'):fingerprint=hashlib.sha256((fingerprint+hashlib.sha256((root/obj['image']).read_bytes()).hexdigest()).encode()).hexdigest()
+            part=segment_cache/f'{scene["id"]}-{fingerprint}.mp4'
+            codec_options=(['-c:v','h264_nvenc','-preset','p4','-rc','vbr','-cq',str(args.crf),'-b:v','0']
+                           if getattr(args,'encoder','libx264')=='h264_nvenc' else
+                           ['-c:v','libx264','-preset',args.preset,'-crf',str(args.crf)])
             cmd=[ffmpeg,'-v','error','-y','-f','rawvideo','-pixel_format','rgb24','-video_size',f'{canvas.size[0]}x{canvas.size[1]}','-framerate',str(args.fps),'-i','pipe:0',
-                 '-t',str(duration),'-an','-c:v','libx264','-preset',args.preset,'-crf',str(args.crf),'-pix_fmt','yuv420p',
-                 '-color_primaries','bt709','-color_trc','bt709','-colorspace','bt709',str(part)]
-            with tempfile.TemporaryFile() as errors:
+                 '-t',str(duration),'-an',*codec_options,'-pix_fmt','yuv420p',
+                 '-color_primaries','bt709','-color_trc','bt709','-colorspace','bt709',str(part.with_suffix('.partial.mp4'))]
+            if part.exists():
+                print(f'Reused encoded {scene["id"]}',flush=True)
+            elif getattr(args,'transport','frames')=='frames':
+                # Encode each changed visual state once. Duration entries preserve
+                # every 1/fps animation sample and hold genuinely static pictures.
+                with tempfile.TemporaryDirectory(prefix='scene-frames-',dir=temp) as frame_dir:
+                    folder=Path(frame_dir);entries=[];previous=None;run=0;frame_path=None;pending_frames=deque()
+                    for f in range(frames):
+                        t=f/args.fps
+                        signature=repr([object_state(o,t,cues) for o in scene['objects']])+next((text for a,b,text in caps if a<=t<b),'')
+                        if signature!=previous:
+                            if frame_path is not None:entries.append((frame_path.name,run/args.fps))
+                            frame_path=folder/f'{len(entries):06}.png'
+                            if pool is None:
+                                canvas.draw(scene,i,len(scenes),t,cues,caps).save(frame_path,compress_level=1)
+                            else:
+                                pending_frames.append(pool.submit(_save_frame,(scene,i,len(scenes),t,cues,caps,str(frame_path))))
+                                if len(pending_frames)>=worker_count*2:pending_frames.popleft().result()
+                            previous=signature;run=0
+                        run+=1
+                    entries.append((frame_path.name,run/args.fps))
+                    for future in pending_frames:future.result()
+                    listing=folder/'frames.txt'
+                    listing.write_text(''.join(f"file '{name}'\noption framerate {args.fps}\nduration {seconds:.12f}\n" for name,seconds in entries)+f"file '{frame_path.name}'\noption framerate {args.fps}\n",encoding='utf-8')
+                    pending=part.with_suffix('.partial.mp4')
+                    subprocess.run([ffmpeg,'-v','error','-y','-f','concat','-safe','0','-i',str(listing),'-vf',f'fps={args.fps}','-frames:v',str(frames),'-an',*codec_options,'-pix_fmt','yuv420p','-color_primaries','bt709','-color_trc','bt709','-colorspace','bt709',str(pending)],check=True)
+                    pending.replace(part)
+            else:
+              with tempfile.TemporaryFile() as errors:
                 p=subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=errors)
                 try:
                     previous,cached=None,None
@@ -392,6 +473,7 @@ def render(args):
                     p.stdin.close();code=p.wait()
                     if code:
                         errors.seek(0);raise RuntimeError(errors.read().decode(errors='replace'))
+                    part.with_suffix('.partial.mp4').replace(part)
                 except BaseException:
                     p.kill();p.wait();raise
             parts.append(part)
@@ -400,7 +482,7 @@ def render(args):
                                  caption_timing='sentence boundaries; clause timing proportional within sentence',
                                  claim_ids=scene.get('claim_ids',[])))
             offset+=duration;print(f'Rendered {scene["id"]}: {duration:.2f}s',flush=True)
-        listing=Path(temp)/'parts.txt';listing.write_text('\n'.join(f"file '{p.name}'" for p in parts),encoding='utf-8')
+        listing=Path(temp)/'parts.txt';listing.write_text('\n'.join("file '"+p.as_posix().replace("'","'\\''")+"'" for p in parts),encoding='utf-8')
         picture=Path(temp)/'picture-track.mp4'
         subprocess.run([ffmpeg,'-v','error','-y','-f','concat','-safe','0','-i',str(listing),'-c','copy',str(picture)],check=True)
         from audio_master import build_master
@@ -424,4 +506,9 @@ if __name__=='__main__':
     parser.add_argument('--backend',choices=['skia','pillow'],default='skia')
     parser.add_argument('--crf',type=int,choices=range(0,52),default=16)
     parser.add_argument('--preset',choices=['veryfast','fast','medium','slow'],default='medium')
+    parser.add_argument('--encoder',choices=['libx264','h264_nvenc'],default='libx264',
+                        help='Use h264_nvenc only with a working NVIDIA encoder; --crf sets NVENC CQ instead')
+    parser.add_argument('--transport',choices=['frames','raw'],default='frames',help='Lossless changed-frame images or raw RGB pipe')
+    parser.add_argument('--theme',choices=['deep-ocean','warm-paper'],help='Override the storyboard scene palette (Skia)')
+    parser.add_argument('--workers',type=int,choices=range(1,9),default=min(4,os.cpu_count() or 1),help='Parallel changed-frame rendering workers; 1 runs serially')
     render(parser.parse_args())

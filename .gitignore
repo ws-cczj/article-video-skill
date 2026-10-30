@@ -13,6 +13,7 @@ Thumbs.db
 /inputs/
 /outputs/
 /tmp/
+/downloads/
 *.mp4
 *.mov
 *.wav

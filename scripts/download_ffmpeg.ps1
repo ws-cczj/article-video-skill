@@ -2,22 +2,45 @@
 .SYNOPSIS
 Download the Windows x64 FFmpeg essentials ZIP, verify SHA256 and print its paths.
 .EXAMPLE
-& ./scripts/download_ffmpeg.ps1 -Destination 'D:\tools\ffmpeg'
+& ./scripts/download_ffmpeg.ps1
 .EXAMPLE
 & ./scripts/download_ffmpeg.ps1 -ShowPaths
 #>
 [CmdletBinding()]
 param(
-    [string]$Destination = (Join-Path $env:LOCALAPPDATA 'article-video-skill\ffmpeg'),
+    [string]$Destination,
     [string]$DownloadDirectory,
     [uri]$Proxy,
     [switch]$ShowPaths
 )
 
 $ErrorActionPreference = 'Stop'
-$destinationPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)
+$skillRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$toolsRoot = Join-Path $skillRoot 'tools'
+
+function Resolve-ToolDirectory([string]$Directory) {
+    $candidate = if ([IO.Path]::IsPathRooted($Directory)) { $Directory } else { Join-Path $skillRoot $Directory }
+    $fullPath = [IO.Path]::GetFullPath($candidate).TrimEnd([char[]]@('\','/'))
+    if ($fullPath -ne $toolsRoot -and -not $fullPath.StartsWith($toolsRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Tool download and installation directories must be inside this skill folder''s tools directory.'
+    }
+    # Reject directory links which could redirect an otherwise local path outside the skill.
+    $ancestor = $fullPath
+    while ($ancestor -and $ancestor -ne $skillRoot) {
+        if (Test-Path -LiteralPath $ancestor) {
+            if ((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                throw "Linked tool directories are not supported: $ancestor"
+            }
+        }
+        $ancestor = [IO.Path]::GetDirectoryName($ancestor)
+    }
+    return $fullPath
+}
+
+if (-not $Destination) { $Destination = Join-Path $toolsRoot 'ffmpeg' }
+$destinationPath = Resolve-ToolDirectory $Destination
 if (-not $DownloadDirectory) { $DownloadDirectory = Join-Path $destinationPath 'downloads' }
-$downloadPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DownloadDirectory)
+$downloadPath = Resolve-ToolDirectory $DownloadDirectory
 $downloadUrl = 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip'
 $archivePath = Join-Path $downloadPath 'ffmpeg-release-essentials.zip'
 
@@ -27,6 +50,8 @@ if ($ShowPaths) {
         ChecksumUrl = "$downloadUrl.sha256"
         ArchivePath = $archivePath
         InstallDirectory = $destinationPath
+        SkillDirectory = $skillRoot
+        ToolsDirectory = $toolsRoot
     }
     return
 }
@@ -41,6 +66,7 @@ function Find-FFmpegBin {
             Sort-Object LastWriteTime -Descending | ForEach-Object { Join-Path $_.FullName 'bin' })
     }
     foreach ($candidate in $candidates) {
+        $candidate = Resolve-ToolDirectory $candidate
         if ((Test-Path -LiteralPath (Join-Path $candidate 'ffmpeg.exe') -PathType Leaf) -and
             (Test-Path -LiteralPath (Join-Path $candidate 'ffprobe.exe') -PathType Leaf)) { return $candidate }
     }
@@ -77,6 +103,8 @@ foreach ($toolName in @('ffmpeg', 'ffprobe')) {
     DownloadUrl = $downloadUrl
     ArchivePath = $archivePath
     InstallDirectory = $destinationPath
+    SkillDirectory = $skillRoot
+    ToolsDirectory = $toolsRoot
     BinPath = $binPath
     FFmpeg = (Join-Path $binPath 'ffmpeg.exe')
     FFprobe = (Join-Path $binPath 'ffprobe.exe')

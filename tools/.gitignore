@@ -1,0 +1,3 @@
+# Downloaded tools, archives, and local dependency environments stay local.
+*
+!.gitignore
