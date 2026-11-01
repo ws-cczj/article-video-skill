@@ -23,19 +23,50 @@
 
 ## 安装与使用
 
-以 Codex 为例，将仓库克隆到技能目录；若设置了 `CODEX_HOME`，请使用该目录下的 `skills`。
+### 使用 npx 安装（推荐）
 
-**PowerShell：**
+先安装 Git 和满足 [skills CLI](https://github.com/vercel-labs/skills) 要求的 Node.js（本次验证的 `skills@1.7.4` 要求 Node.js ≥ 22.20.0，包含 npm / npx），然后运行：
+
+```bash
+npx skills add ws-cczj/article-video-skill
+```
+
+按提示选择目标助手和安装范围。正确命令包含 `skills`，不要省略为 `npx add ...`。该仓库已包含可被安装器识别的根目录 `SKILL.md`，无需另行发布 npm 包。
+
+只为 Codex 安装，并在不同项目中使用：
+
+```bash
+npx skills add ws-cczj/article-video-skill --agent codex --global
+```
+
+若只安装到当前项目，省略 `--global`；自动化安装可追加 `--yes`。Windows 下如果无法创建符号链接，可追加 `--copy`；如果 PowerShell 阻止运行 `npx.ps1`，可使用 `npx.cmd` 执行相同参数。
+
+检查和更新用户级安装：
+
+```bash
+npx skills list --global
+npx skills update article-video-skill --global
+```
+
+本仓库已使用 `skills@1.7.4` 在隔离目录验证项目级 Codex 安装，确认 `scripts/`、`assets/`、`references/` 和依赖清单随技能一起安装。该命令安装技能文件；Python 依赖、XeLaTeX、FFmpeg 和配音工具按 [本地制作说明](references/local-production.md) 检查与配置。
+
+### 手动安装（可选）
+
+如需维护 Git 克隆，可将仓库克隆到助手的技能目录。以 Codex 为例，若已设置 `CODEX_HOME`，使用该目录下的 `skills`；否则：
 
 ```powershell
+# PowerShell
 git clone https://github.com/ws-cczj/article-video-skill.git "$HOME/.codex/skills/article-video-skill"
 ```
 
-**macOS / Linux：**
-
 ```bash
+# macOS / Linux
 git clone https://github.com/ws-cczj/article-video-skill.git ~/.codex/skills/article-video-skill
 ```
+
+手动克隆的安装可在技能目录运行 `git pull --ff-only` 更新。已有同名安装时选择一种方式维护，避免覆盖本地修改。
+
+### 使用
 
 重新打开支持技能发现的助手会话，然后提供文献并调用：
 
